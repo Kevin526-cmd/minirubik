@@ -1,0 +1,21 @@
+﻿---- run 1 : whole-process wall time = 917 ms, peak memory = 23.9 MiB
+
+Program exited with code: 0
+===== instructions retired
+4000006
+===== wall-clock model execution time (ms)
+475
+---- run 2 : whole-process wall time = 632 ms, peak memory = 23.4 MiB
+
+Program exited with code: 0
+===== instructions retired
+4000006
+===== wall-clock model execution time (ms)
+519
+---- run 3 : whole-process wall time = 602 ms, peak memory = 23.4 MiB
+
+Program exited with code: 0
+===== instructions retired
+4000006
+===== wall-clock model execution time (ms)
+489

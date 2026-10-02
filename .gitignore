@@ -3,3 +3,6 @@
 *.swp
 solver
 mini
+
+bench/run*.txt
+*.exe
