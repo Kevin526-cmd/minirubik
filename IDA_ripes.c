@@ -156,6 +156,57 @@ static void print_histogram(const char *name, const uint8_t *dist, int size)
     printf("\n");
 }
 
+static const char *move_name[9] = {"R","R2","R'","B","B2","B'","D","D2","D'"};
+static uint8_t path[16];     
+static long nodes;          
+
+static int heuristic(uint16_t P, uint16_t O) {
+    return dist_p[P] > dist_o[O] ? dist_p[P] : dist_o[O];
+}
+
+static int search(uint16_t P, uint16_t O, int g, int last_face, int bound) {
+    nodes++;
+    int f = g + heuristic(P, O);
+    if (f > bound) return f;
+    if (P == 0 && O == 0) return -1;
+
+    int min_f = 99;
+    for (int face = 0; face < 3; ++face) {
+        if (face == last_face) continue;
+        uint16_t nP = P, nO = O;
+        for (int turn = 0; turn < 3; ++turn) {     
+            nP = permutation[face][nP];
+            nO = orientation[face][nO];
+            path[g] = (uint8_t)(face * 3 + turn);
+            int t = search(nP, nO, g + 1, face, bound);
+            if (t == -1) return -1;
+            if (t < min_f) min_f = t;
+        }
+    }
+    return min_f;
+}
+
+static int solve(uint16_t P, uint16_t O) {
+    int bound = heuristic(P, O);
+    for (;;) {
+        int t = search(P, O, 0, -1, bound);
+        if (t == -1) return bound;
+        bound = t;
+    }
+}
+
+static void from_string(const char *s, uint16_t *P, uint16_t *O)
+{
+    state_t st;
+    for (int i = 0; i < CUBIES; ++i) {
+        st.p[i] = (uint8_t) (s[i] - '1');
+        st.o[i] = (uint8_t) (s[i + CUBIES] - '1');
+    }
+    uint32_t r = rank_state(&st);
+    *P = (uint16_t) (r / ORIENTATIONS);
+    *O = (uint16_t) (r % ORIENTATIONS);
+}
+
 int main(void)
 {
     build_transitions();
@@ -163,5 +214,17 @@ int main(void)
     build_dist_o();
     print_histogram("dist_p", dist_p, PERMUTATIONS);
     print_histogram("dist_o", dist_o, ORIENTATIONS);
+
+    const char *tests[] = {"12345671111111", "46231752122222", "21345671111111"};
+    for (int i = 0; i < 3; ++i) {
+        uint16_t P, O;
+        from_string(tests[i], &P, &O);
+        nodes = 0;
+        int n = solve(P, O);
+        printf("%s: %d moves, %ld nodes:", tests[i], n, nodes);
+        for (int k = 0; k < n; ++k)
+            printf(" %s", move_name[path[k]]);
+        printf("\n");
+    }
     return 0;
 }
