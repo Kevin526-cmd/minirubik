@@ -1,0 +1,17 @@
+﻿Oracle: 3674160 states, diameter 11
+  levels: 1 9 54 321 1847 9992 50136 227536 870072 1887748 623800 2644
+H1: h(s) <= d(s) over all 3674160 states
+  h == d on 17108 states (0.5%)
+  PASS
+H2: tables fully populated, maxima and solved entries
+  max dist_p = 7, max dist_o = 6, solved entries = 0, 0
+  PASS
+H3: search length == exact distance
+  skipped (run with --full)
+Worst case over the distance-11 states
+  states 2644, mean nodes 206625, max nodes 639798 at 54721631111111 (d = 11)
+  wall-clock 5.8 s
+  PASS
+H4: no packed tables yet (byte tables only) -- not applicable
+
+ALL PASSED (0 failures)
