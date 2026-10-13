@@ -77,6 +77,28 @@ static void unrank_state(uint32_t rank, state_t *state)
 static uint16_t permutation[3][PERMUTATIONS];
 static uint16_t orientation[3][ORIENTATIONS];
 
+/* 單顆角塊：c = 位置 * 3 + 方向。 */
+static uint8_t cubie_move[3][21];
+
+static void build_cubie_move(void)
+{
+    for (int face = 0; face < 3; ++face) {
+        for (int new_pos = 0; new_pos < CUBIES; ++new_pos) {
+            int old_pos = source[face][new_pos];
+
+            for (int old_o = 0; old_o < 3; ++old_o) {
+                int new_o =
+                    (old_o + twist[face][new_pos]) % 3;
+
+                int old_c = old_pos * 3 + old_o;
+                int new_c = new_pos * 3 + new_o;
+
+                cubie_move[face][old_c] = (uint8_t)new_c;
+            }
+        }
+    }
+}
+
 static void build_transitions(void)
 {
     state_t state;
@@ -100,6 +122,12 @@ static void build_transitions(void)
 
 static uint8_t dist_p[PERMUTATIONS];
 static uint8_t dist_o[ORIENTATIONS];
+
+enum{
+    PO_STATES = PERMUTATIONS * 9
+};
+
+static uint8_t dist_po[PO_STATES];
 
 static void build_dist_p(void)
 {
@@ -145,6 +173,86 @@ static void build_dist_o(void)
     }
 }
 
+static void quarter_turn_po(
+    uint16_t *P,
+    uint8_t *a,
+    uint8_t *b,
+    int face)
+{
+    uint16_t nextP = permutation[face][*P];
+
+    state_t next;
+    unrank_state(
+        (uint32_t)nextP * ORIENTATIONS,
+        &next
+    );
+
+    for (int i = 0; i < CUBIES; ++i) {
+        if (next.p[i] == 0) {
+            *a = (uint8_t)(
+                (*a + twist[face][i]) % 3
+            );
+        }
+
+        if (next.p[i] == 1) {
+            *b = (uint8_t)(
+                (*b + twist[face][i]) % 3
+            );
+        }
+    }
+    *P = nextP;
+}
+
+static void build_dist_po(void)
+{
+    /*
+     * 狀態索引最大為 45359，uint16_t 放得下。
+     * queue 保存等待展開的狀態索引。
+     */
+    uint16_t queue[PO_STATES];
+
+    int head = 0;  
+    int tail = 0;  
+
+    memset(dist_po, 0xFF, sizeof dist_po);
+
+    dist_po[0] = 0;
+    queue[tail++] = 0;
+
+    while (head < tail) {
+        uint16_t here = queue[head++];
+
+        uint16_t P = (uint16_t)(here / 9);
+        uint8_t a = (uint8_t)((here % 9) / 3);
+        uint8_t b = (uint8_t)(here % 3);
+
+        for (int face = 0; face < 3; ++face) {
+
+            uint16_t nP = P;
+            uint8_t na = a;
+            uint8_t nb = b;
+
+
+            for (int turn = 0; turn < 3; ++turn) {
+                quarter_turn_po(&nP, &na, &nb, face);
+
+                uint16_t next = (uint16_t)(
+                    nP * 9 + na * 3 + nb
+                );
+
+                if (dist_po[next] != UINT8_MAX)
+                    continue;
+
+                dist_po[next] = (uint8_t)(
+                    dist_po[here] + 1
+                );
+
+                queue[tail++] = next;
+            }
+        }
+    }
+}
+
 static void print_histogram(const char *name, const uint8_t *dist, int size)
 {
     int count[16] = {0};
@@ -160,71 +268,189 @@ static const char *move_name[9] = {"R","R2","R'","B","B2","B'","D","D2","D'"};
 static uint8_t path[16];     
 static long nodes;          
 
-static int heuristic(uint16_t P, uint16_t O) {
-    return dist_p[P] > dist_o[O] ? dist_p[P] : dist_o[O];
+static int heuristic(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb)
+{
+    int a = ca % 3;
+    int b = cb % 3;
+
+    int index = P * 9 + a * 3 + b;
+
+    int h_po = dist_po[index];
+    int h_o = dist_o[O];
+
+    return h_po > h_o ? h_po : h_o;
 }
 
-static int search(uint16_t P, uint16_t O, int g, int last_face, int bound) {
+static int search(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb, int g, int last_face, int bound)
+{
     nodes++;
-    int f = g + heuristic(P, O);
-    if (f > bound) return f;
-    if (P == 0 && O == 0) return -1;
+
+    int f = g + heuristic(P, O, ca, cb);
+
+    if (f > bound)
+        return f;
+
+    /* 必須是完整方塊完成，不能只看 dist_po。 */
+    if (P == 0 && O == 0)
+        return -1;
 
     int min_f = 99;
+
     for (int face = 0; face < 3; ++face) {
-        if (face == last_face) continue;
-        uint16_t nP = P, nO = O;
-        for (int turn = 0; turn < 3; ++turn) {     
+        if (face == last_face)
+            continue;
+
+        /* 每換一個面，都從這一層的狀態開始。 */
+        uint16_t nP = P;
+        uint16_t nO = O;
+
+        uint8_t nca = ca;
+        uint8_t ncb = cb;
+
+        for (int turn = 0; turn < 3; ++turn) {
             nP = permutation[face][nP];
             nO = orientation[face][nO];
+
+            nca = cubie_move[face][nca];
+            ncb = cubie_move[face][ncb];
+
             path[g] = (uint8_t)(face * 3 + turn);
-            int t = search(nP, nO, g + 1, face, bound);
-            if (t == -1) return -1;
-            if (t < min_f) min_f = t;
+
+            int t = search(
+                nP, nO, nca, ncb,
+                g + 1, face, bound
+            );
+
+            if (t == -1)
+                return -1;
+
+            if (t < min_f)
+                min_f = t;
         }
     }
+
     return min_f;
 }
 
-static int solve(uint16_t P, uint16_t O) {
-    int bound = heuristic(P, O);
+static int solve(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb)
+{
+    int bound = heuristic(P, O, ca, cb);
+
     for (;;) {
-        int t = search(P, O, 0, -1, bound);
-        if (t == -1) return bound;
+        int t = search(
+            P, O, ca, cb,
+            0, -1, bound
+        );
+
+        if (t == -1)
+            return bound;
+
         bound = t;
     }
 }
 
-static void from_string(const char *s, uint16_t *P, uint16_t *O)
+static void from_string(const char *s, uint16_t *P, uint16_t *O, uint8_t *ca, uint8_t *cb)
 {
     state_t st;
+
     for (int i = 0; i < CUBIES; ++i) {
-        st.p[i] = (uint8_t) (s[i] - '1');
-        st.o[i] = (uint8_t) (s[i + CUBIES] - '1');
+        st.p[i] = (uint8_t)(s[i] - '1');
+        st.o[i] = (uint8_t)(s[i + CUBIES] - '1');
+
+        /* 找角塊 A：身分編號 0。 */
+        if (st.p[i] == 0) {
+            *ca = (uint8_t)(i * 3 + st.o[i]);
+        }
+
+        /* 找角塊 B：身分編號 1。 */
+        if (st.p[i] == 1) {
+            *cb = (uint8_t)(i * 3 + st.o[i]);
+        }
     }
+
     uint32_t r = rank_state(&st);
-    *P = (uint16_t) (r / ORIENTATIONS);
-    *O = (uint16_t) (r % ORIENTATIONS);
+
+    *P = (uint16_t)(r / ORIENTATIONS);
+    *O = (uint16_t)(r % ORIENTATIONS);
 }
 
 int main(void)
 {
     build_transitions();
+    build_cubie_move();
+
     build_dist_p();
     build_dist_o();
+    build_dist_po();
+
+    int missing = 0;
+    int weaker = 0;
+    int max_dist = 0;
+
+    for (int idx = 0; idx < PO_STATES; ++idx) {
+        if (dist_po[idx] == UINT8_MAX) {
+            ++missing;
+            continue;
+        }
+
+        int P = idx / 9;
+
+        if (dist_po[idx] < dist_p[P])
+            ++weaker;
+
+        if (dist_po[idx] > max_dist)
+            max_dist = dist_po[idx];
+    }
+
+    printf(
+        "dist_po: missing=%d, weaker=%d, max=%d\n",
+        missing, weaker, max_dist
+    );
+
+    int r_index = 1104 * 9 + 2 * 3 + 1;
+
+    printf(
+        "goal=%u, R_from_goal=%u\n",
+        (unsigned)dist_po[0],
+        (unsigned)dist_po[r_index]
+    );
+
+    if (missing != 0 || weaker != 0 || dist_po[0] != 0 || dist_po[r_index] != 1) {
+        fprintf(stderr, "dist_po basic checks failed.\n");
+        return 1;
+    }
+
     print_histogram("dist_p", dist_p, PERMUTATIONS);
     print_histogram("dist_o", dist_o, ORIENTATIONS);
 
-    const char *tests[] = {"12345671111111", "46231752122222", "21345671111111"};
+    const char *tests[] = {
+        "12345671111111",
+        "46231752122222",
+        "21345671111111"
+    };
+
     for (int i = 0; i < 3; ++i) {
         uint16_t P, O;
-        from_string(tests[i], &P, &O);
+        uint8_t ca = 0, cb = 0;
+
+        /* 取得完整狀態與兩顆追蹤角塊的座標。 */
+        from_string(tests[i], &P, &O, &ca, &cb);
+
         nodes = 0;
-        int n = solve(P, O);
-        printf("%s: %d moves, %ld nodes:", tests[i], n, nodes);
+
+        /* 四個座標一起交給 IDA*。 */
+        int n = solve(P, O, ca, cb);
+
+        printf(
+            "%s: %d moves, %ld nodes:",
+            tests[i], n, nodes
+        );
+
         for (int k = 0; k < n; ++k)
             printf(" %s", move_name[path[k]]);
+
         printf("\n");
     }
+
     return 0;
 }

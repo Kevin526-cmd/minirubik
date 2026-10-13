@@ -1,5 +1,6 @@
 /*
- * Host correctness gates H1-H4 and worst-case search for IDA_ripes.c.
+ * Host correctness gates H1-H4 and worst-case search for IDA_ripes.c
+ * (version with h = max(dist_po, dist_o) and tracked cubies ca, cb).
  *
  * Build from the repository root:
  *   gcc -O2 -o check_ida bench/check_ida.c
@@ -40,6 +41,17 @@ static void build_oracle(void)
                 }
             }
         }
+    }
+}
+
+/* Tracked-cubie coordinates c = position * 3 + twist for cubies 0 and 1. */
+static void tracked(uint16_t P, uint16_t O, uint8_t *ca, uint8_t *cb)
+{
+    state_t st;
+    unrank_state((uint32_t) P * ORIENTATIONS + O, &st);
+    for (int i = 0; i < CUBIES; ++i) {
+        if (st.p[i] == 0) *ca = (uint8_t) (i * 3 + st.o[i]);
+        if (st.p[i] == 1) *cb = (uint8_t) (i * 3 + st.o[i]);
     }
 }
 
@@ -92,6 +104,24 @@ static void gate_h2(void)
         CHECK(dist_o[i] != UINT8_MAX, "dist_o[%d] unvisited", i);
         if (dist_o[i] > max_o) max_o = dist_o[i];
     }
+    int max_po = 0;
+    for (int i = 0; i < PO_STATES; ++i) {
+        CHECK(dist_po[i] != UINT8_MAX, "dist_po[%d] unvisited", i);
+        CHECK(dist_po[i] >= dist_p[i / 9], "dist_po[%d] < dist_p", i);
+        if (dist_po[i] > max_po) max_po = dist_po[i];
+    }
+    CHECK(dist_po[0] == 0, "dist_po[0] = %d", dist_po[0]);
+    CHECK(max_po == 8, "max dist_po = %d, expected 8", max_po);
+    for (int f = 0; f < 3; ++f) {
+        static uint8_t seen21[21];
+        memset(seen21, 0, sizeof seen21);
+        for (int c = 0; c < 21; ++c) {
+            CHECK(cubie_move[f][c] < 21 && !seen21[cubie_move[f][c]],
+                  "cubie_move[%d] is not a bijection", f);
+            if (cubie_move[f][c] < 21) seen21[cubie_move[f][c]] = 1;
+        }
+    }
+    printf("  max dist_po = %d, solved entry = %d\n", max_po, dist_po[0]);
     CHECK(dist_p[0] == 0, "dist_p[0] = %d", dist_p[0]);
     CHECK(dist_o[0] == 0, "dist_o[0] = %d", dist_o[0]);
     CHECK(max_p == 7, "max dist_p = %d, expected 7", max_p);
@@ -131,7 +161,9 @@ static void gate_h1(void)
     for (uint32_t s = 0; s < STATES; ++s) {
         uint16_t P = (uint16_t) (s / ORIENTATIONS);
         uint16_t O = (uint16_t) (s % ORIENTATIONS);
-        int h = heuristic(P, O);
+        uint8_t ca = 0, cb = 0;
+        tracked(P, O, &ca, &cb);
+        int h = heuristic(P, O, ca, cb);
         CHECK(h <= exact[s], "state %u: h = %d > d = %d", s, h, exact[s]);
         if (h == exact[s]) tight++;
     }
@@ -143,7 +175,7 @@ static void gate_h1(void)
 static void run_search(int lo, int hi, const char *label)
 {
     int before = failures;
-    long solved = 0, max_nodes = 0, sum_nodes = 0;
+    long long solved = 0, max_nodes = 0, sum_nodes = 0;
     uint32_t worst = 0;
     clock_t start = clock();
     printf("%s\n", label);
@@ -152,8 +184,10 @@ static void run_search(int lo, int hi, const char *label)
             continue;
         uint16_t P = (uint16_t) (s / ORIENTATIONS);
         uint16_t O = (uint16_t) (s % ORIENTATIONS);
+        uint8_t ca = 0, cb = 0;
+        tracked(P, O, &ca, &cb);
         nodes = 0;
-        int n = solve(P, O);
+        int n = solve(P, O, ca, cb);
         CHECK(n == exact[s], "state %u: search length %d, exact %d", s, n,
               exact[s]);
         CHECK(path_solves(P, O, n), "state %u: path does not solve", s);
@@ -173,7 +207,7 @@ static void run_search(int lo, int hi, const char *label)
         text[i + CUBIES] = (char) ('1' + st.o[i]);
     }
     text[14] = '\0';
-    printf("  states %ld, mean nodes %.0f, max nodes %ld at %s (d = %d)\n",
+    printf("  states %lld, mean nodes %.0f, max nodes %lld at %s (d = %d)\n",
            solved, (double) sum_nodes / solved, max_nodes, text, exact[worst]);
     printf("  wall-clock %.1f s\n", secs);
     printf("  %s\n", failures == before ? "PASS" : "FAILED");
@@ -185,8 +219,10 @@ int main(int argc, char **argv)
     int count[16] = {0};
 
     build_transitions();
+    build_cubie_move();
     build_dist_p();
     build_dist_o();
+    build_dist_po();   /* H2 below checks that every entry was reached */
     build_oracle();
 
     gate_oracle(count);
