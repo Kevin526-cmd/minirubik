@@ -1,15 +1,3 @@
-/*
- * Host correctness gates H1-H4 and worst-case search for IDA_ripes.c
- * (version with h = max(dist_po, dist_o) and tracked cubies ca, cb).
- *
- * Build from the repository root:
- *   gcc -O2 -o check_ida bench/check_ida.c
- *   ./check_ida            # H1, H2, H4, distance-11 worst case (seconds)
- *   ./check_ida --full     # also H3 over all 3,674,160 states (minutes)
- *
- * The oracle is an exact BFS over (P, O) pairs, built independently of
- * the search, with the same move set (R, B, D quarter/half/inverse turns).
- */
 #define main ida_main
 #include "../IDA_ripes.c"
 #undef main
@@ -44,9 +32,6 @@ static void build_oracle(void)
     }
 }
 
-/* Tracked-cubie coordinates c = position * C_STRIDE + twist for cubies 0
- * and 1. The stride is read from the size of cubie_move: 21 entries means
- * position * 3 + twist, 28 entries means position * 4 + twist. */
 #define C_STRIDE ((int) (sizeof cubie_move[0] / CUBIES))
 static void tracked(uint16_t P, uint16_t O, uint8_t *ca, uint8_t *cb)
 {
@@ -115,8 +100,7 @@ static void gate_h2(void)
     }
     CHECK(dist_po[0] == 0, "dist_po[0] = %d", dist_po[0]);
     CHECK(max_po == 8, "max dist_po = %d, expected 8", max_po);
-    /* cubie_move must map every valid (position, twist) to a distinct
-     * valid (position, twist), and agree with source/twist. */
+
     for (int f = 0; f < 3; ++f) {
         uint8_t seen[CUBIES * 4];
         memset(seen, 0, sizeof seen);
