@@ -77,7 +77,6 @@ static void unrank_state(uint32_t rank, state_t *state)
 static uint16_t permutation[3][PERMUTATIONS];
 static uint16_t orientation[3][ORIENTATIONS];
 
-/* 單顆角塊：c = 位置 * 3 + 方向。 */
 static uint8_t cubie_move[3][28];
 
 static void build_cubie_move(void)
@@ -279,48 +278,65 @@ static int heuristic(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb)
 
 static uint16_t stP[16], stO[16];
 static uint8_t stA[16], stB[16];
-static uint8_t next_move[16];
+static uint8_t cur_face[16];   
+static uint8_t cur_turn[16];   
+static uint8_t path_face[16];  
+static uint8_t path_turn[16];  
 
 static int search_iter(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb, int bound, int *next_bound)
 {
     int d = 0;
     int min_f = 99;
     stP[0] = P; stO[0] = O; stA[0] = ca; stB[0] = cb;
-    next_move[0] = 0;
+    cur_face[0] = 0; cur_turn[0] = 0;
     if (P == 0 && O == 0) return 0;
 
-    while (d >= 0){
-        if (next_move[d] == 9){
+    while (d >= 0) {
+        int face = cur_face[d];
+        if (face == 3) {                        
             d--;
             continue;
         }
-        int m = next_move[d]++;
-        int face = m/3;
-        if (d > 0 && face == path[d-1]/3) continue;
+        int turn = cur_turn[d];
+        if (turn == 0 && d > 0 && face == path_face[d - 1]) {
+            cur_face[d] = (uint8_t)(face + 1);
+            continue;
+        }
 
-        if (m % 3 ==0){
-            stP[d+1] = permutation[face][stP[d]];
-            stO[d+1] = orientation[face][stO[d]];
-            stA[d+1] = cubie_move[face][stA[d]];
-            stB[d+1] = cubie_move[face][stB[d]];
-        } 
-        else {
-            stP[d+1] = permutation[face][stP[d+1]];
-            stO[d+1] = orientation[face][stO[d+1]];
-            stA[d+1] = cubie_move[face][stA[d+1]];
-            stB[d+1] = cubie_move[face][stB[d+1]];
+       
+        if (turn == 2) {
+            cur_face[d] = (uint8_t)(face + 1);
+            cur_turn[d] = 0;
+        } else {
+            cur_turn[d] = (uint8_t)(turn + 1);
+        }
+
+        if (turn == 0) {
+            stP[d + 1] = permutation[face][stP[d]];
+            stO[d + 1] = orientation[face][stO[d]];
+            stA[d + 1] = cubie_move[face][stA[d]];
+            stB[d + 1] = cubie_move[face][stB[d]];
+        } else {
+            stP[d + 1] = permutation[face][stP[d + 1]];
+            stO[d + 1] = orientation[face][stO[d + 1]];
+            stA[d + 1] = cubie_move[face][stA[d + 1]];
+            stB[d + 1] = cubie_move[face][stB[d + 1]];
         }
 
         nodes++;
-        int f = d + 1 + heuristic(stP[d+1], stO[d+1], stA[d+1], stB[d+1]);
-        if (f > bound){
+        int f = d + 1 + heuristic(stP[d + 1], stO[d + 1], stA[d + 1], stB[d + 1]);
+        if (f > bound) {
             if (f < min_f) min_f = f;
             continue;
         }
-        path[d] = (uint8_t) m;
-        if (stP[d+1] == 0 && stO[d+1] == 0) return d + 1;
+        path_face[d] = (uint8_t) face;
+        path_turn[d] = (uint8_t) turn;
+        path[d] = (uint8_t)(face * 3 + turn);
+        if (stP[d + 1] == 0 && stO[d + 1] == 0)
+            return d + 1;
         d++;
-        next_move[d] = 0;
+        cur_face[d] = 0;
+        cur_turn[d] = 0;
     }
     *next_bound = min_f;
     return -1;
@@ -346,12 +362,10 @@ static void from_string(const char *s, uint16_t *P, uint16_t *O, uint8_t *ca, ui
         st.p[i] = (uint8_t)(s[i] - '1');
         st.o[i] = (uint8_t)(s[i + CUBIES] - '1');
 
-        /* 找角塊 A：身分編號 0。 */
         if (st.p[i] == 0) {
             *ca = (uint8_t)((i << 2) + st.o[i]);
         }
 
-        /* 找角塊 B：身分編號 1。 */
         if (st.p[i] == 1) {
             *cb = (uint8_t)((i << 2) + st.o[i]);
         }
@@ -422,12 +436,10 @@ int main(void)
         uint16_t P, O;
         uint8_t ca = 0, cb = 0;
 
-        /* 取得完整狀態與兩顆追蹤角塊的座標。 */
         from_string(tests[i], &P, &O, &ca, &cb);
 
         nodes = 0;
 
-        /* 四個座標一起交給 IDA*。 */
         int n = solve(P, O, ca, cb);
 
         printf(
@@ -436,7 +448,7 @@ int main(void)
         );
 
         for (int k = 0; k < n; ++k)
-            printf(" %s", move_name[path[k]]);
+            printf(" %s", move_name[path_face[k] * 3 + path_turn[k]]);
 
         printf("\n");
     }
