@@ -78,7 +78,7 @@ static uint16_t permutation[3][PERMUTATIONS];
 static uint16_t orientation[3][ORIENTATIONS];
 
 /* 單顆角塊：c = 位置 * 3 + 方向。 */
-static uint8_t cubie_move[3][21];
+static uint8_t cubie_move[3][28];
 
 static void build_cubie_move(void)
 {
@@ -90,8 +90,8 @@ static void build_cubie_move(void)
                 int new_o =
                     (old_o + twist[face][new_pos]) % 3;
 
-                int old_c = old_pos * 3 + old_o;
-                int new_c = new_pos * 3 + new_o;
+                int old_c = (old_pos << 2) + old_o;
+                int new_c = (new_pos << 2) + new_o;
 
                 cubie_move[face][old_c] = (uint8_t)new_c;
             }
@@ -266,10 +266,10 @@ static long nodes;
 
 static int heuristic(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb)
 {
-    int a = ca % 3;
-    int b = cb % 3;
+    int a = ca & 3;
+    int b = cb & 3;
 
-    int index = P * 9 + a * 3 + b;
+    int index = ( P << 3 ) + P + (a << 1) + a + b;
 
     int h_po = dist_po[index];
     int h_o = dist_o[O];
@@ -348,12 +348,12 @@ static void from_string(const char *s, uint16_t *P, uint16_t *O, uint8_t *ca, ui
 
         /* 找角塊 A：身分編號 0。 */
         if (st.p[i] == 0) {
-            *ca = (uint8_t)(i * 3 + st.o[i]);
+            *ca = (uint8_t)((i << 2) + st.o[i]);
         }
 
         /* 找角塊 B：身分編號 1。 */
         if (st.p[i] == 1) {
-            *cb = (uint8_t)(i * 3 + st.o[i]);
+            *cb = (uint8_t)((i << 2) + st.o[i]);
         }
     }
 

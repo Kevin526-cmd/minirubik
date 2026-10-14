@@ -44,14 +44,17 @@ static void build_oracle(void)
     }
 }
 
-/* Tracked-cubie coordinates c = position * 3 + twist for cubies 0 and 1. */
+/* Tracked-cubie coordinates c = position * C_STRIDE + twist for cubies 0
+ * and 1. The stride is read from the size of cubie_move: 21 entries means
+ * position * 3 + twist, 28 entries means position * 4 + twist. */
+#define C_STRIDE ((int) (sizeof cubie_move[0] / CUBIES))
 static void tracked(uint16_t P, uint16_t O, uint8_t *ca, uint8_t *cb)
 {
     state_t st;
     unrank_state((uint32_t) P * ORIENTATIONS + O, &st);
     for (int i = 0; i < CUBIES; ++i) {
-        if (st.p[i] == 0) *ca = (uint8_t) (i * 3 + st.o[i]);
-        if (st.p[i] == 1) *cb = (uint8_t) (i * 3 + st.o[i]);
+        if (st.p[i] == 0) *ca = (uint8_t) (i * C_STRIDE + st.o[i]);
+        if (st.p[i] == 1) *cb = (uint8_t) (i * C_STRIDE + st.o[i]);
     }
 }
 
@@ -112,14 +115,23 @@ static void gate_h2(void)
     }
     CHECK(dist_po[0] == 0, "dist_po[0] = %d", dist_po[0]);
     CHECK(max_po == 8, "max dist_po = %d, expected 8", max_po);
+    /* cubie_move must map every valid (position, twist) to a distinct
+     * valid (position, twist), and agree with source/twist. */
     for (int f = 0; f < 3; ++f) {
-        static uint8_t seen21[21];
-        memset(seen21, 0, sizeof seen21);
-        for (int c = 0; c < 21; ++c) {
-            CHECK(cubie_move[f][c] < 21 && !seen21[cubie_move[f][c]],
-                  "cubie_move[%d] is not a bijection", f);
-            if (cubie_move[f][c] < 21) seen21[cubie_move[f][c]] = 1;
-        }
+        uint8_t seen[CUBIES * 4];
+        memset(seen, 0, sizeof seen);
+        for (int pos = 0; pos < CUBIES; ++pos)
+            for (int o = 0; o < 3; ++o) {
+                int c = pos * C_STRIDE + o;
+                int n = cubie_move[f][c];
+                int npos = n / C_STRIDE, no = n % C_STRIDE;
+                CHECK(npos < CUBIES && no < 3 && !seen[npos * 4 + no],
+                      "cubie_move[%d][%d] = %d invalid or repeated", f, c, n);
+                CHECK(npos < CUBIES && source[f][npos] == pos &&
+                          no == (o + twist[f][npos]) % 3,
+                      "cubie_move[%d][%d] disagrees with source/twist", f, c);
+                if (npos < CUBIES && no < 4) seen[npos * 4 + no] = 1;
+            }
     }
     printf("  max dist_po = %d, solved entry = %d\n", max_po, dist_po[0]);
     CHECK(dist_p[0] == 0, "dist_p[0] = %d", dist_p[0]);
