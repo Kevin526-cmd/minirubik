@@ -205,10 +205,6 @@ static void quarter_turn_po(
 
 static void build_dist_po(void)
 {
-    /*
-     * 狀態索引最大為 45359，uint16_t 放得下。
-     * queue 保存等待展開的狀態索引。
-     */
     uint16_t queue[PO_STATES];
 
     int head = 0;  
@@ -281,55 +277,53 @@ static int heuristic(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb)
     return h_po > h_o ? h_po : h_o;
 }
 
-static int search(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb, int g, int last_face, int bound)
+static uint16_t stP[16], stO[16];
+static uint8_t stA[16], stB[16];
+static uint8_t next_move[16];
+
+static int search_iter(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb, int bound, int *next_bound)
 {
-    nodes++;
-
-    int f = g + heuristic(P, O, ca, cb);
-
-    if (f > bound)
-        return f;
-
-    /* 必須是完整方塊完成，不能只看 dist_po。 */
-    if (P == 0 && O == 0)
-        return -1;
-
+    int d = 0;
     int min_f = 99;
+    stP[0] = P; stO[0] = O; stA[0] = ca; stB[0] = cb;
+    next_move[0] = 0;
+    if (P == 0 && O == 0) return 0;
 
-    for (int face = 0; face < 3; ++face) {
-        if (face == last_face)
+    while (d >= 0){
+        if (next_move[d] == 9){
+            d--;
             continue;
-
-        /* 每換一個面，都從這一層的狀態開始。 */
-        uint16_t nP = P;
-        uint16_t nO = O;
-
-        uint8_t nca = ca;
-        uint8_t ncb = cb;
-
-        for (int turn = 0; turn < 3; ++turn) {
-            nP = permutation[face][nP];
-            nO = orientation[face][nO];
-
-            nca = cubie_move[face][nca];
-            ncb = cubie_move[face][ncb];
-
-            path[g] = (uint8_t)(face * 3 + turn);
-
-            int t = search(
-                nP, nO, nca, ncb,
-                g + 1, face, bound
-            );
-
-            if (t == -1)
-                return -1;
-
-            if (t < min_f)
-                min_f = t;
         }
-    }
+        int m = next_move[d]++;
+        int face = m/3;
+        if (d > 0 && face == path[d-1]/3) continue;
 
-    return min_f;
+        if (m % 3 ==0){
+            stP[d+1] = permutation[face][stP[d]];
+            stO[d+1] = orientation[face][stO[d]];
+            stA[d+1] = cubie_move[face][stA[d]];
+            stB[d+1] = cubie_move[face][stB[d]];
+        } 
+        else {
+            stP[d+1] = permutation[face][stP[d+1]];
+            stO[d+1] = orientation[face][stO[d+1]];
+            stA[d+1] = cubie_move[face][stA[d+1]];
+            stB[d+1] = cubie_move[face][stB[d+1]];
+        }
+
+        nodes++;
+        int f = d + 1 + heuristic(stP[d+1], stO[d+1], stA[d+1], stB[d+1]);
+        if (f > bound){
+            if (f < min_f) min_f = f;
+            continue;
+        }
+        path[d] = (uint8_t) m;
+        if (stP[d+1] == 0 && stO[d+1] == 0) return d + 1;
+        d++;
+        next_move[d] = 0;
+    }
+    *next_bound = min_f;
+    return -1;
 }
 
 static int solve(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb)
@@ -337,15 +331,10 @@ static int solve(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb)
     int bound = heuristic(P, O, ca, cb);
 
     for (;;) {
-        int t = search(
-            P, O, ca, cb,
-            0, -1, bound
-        );
-
-        if (t == -1)
-            return bound;
-
-        bound = t;
+        int next_bound;
+        int n = search_iter(P, O, ca, cb, bound, &next_bound);
+        if (n >= 0) return n;
+        bound = next_bound;
     }
 }
 
