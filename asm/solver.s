@@ -263,7 +263,22 @@ src_ok:
     lbu  a3, 0(t3)           
     sb   a3, 81(a4)
 
-    jal  ra, heur
+    andi t0, a2, 3           
+    andi t1, a3, 3           
+    slli t2, a0, 3
+    add  t2, t2, a0          
+    slli t3, t0, 1
+    add  t3, t3, t0          
+    add  t2, t2, t3
+    add  t2, t2, t1          
+    add  t2, t2, s10
+    lbu  t2, 0(t2)           
+    add  t3, s11, a1
+    lbu  a0, 0(t3)           
+    bgeu a0, t2, h_ok        
+    mv   a0, t2              
+
+h_ok:
     add  t0, a0, s4              
     addi t0, t0, 1
     ble  t0, s5, no_prune        

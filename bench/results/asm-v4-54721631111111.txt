@@ -1,0 +1,4 @@
+﻿11 3343 0 16 12
+Program exited with code: 0
+===== instructions retired
+10687260
