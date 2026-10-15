@@ -91,6 +91,7 @@ next_i:
 
     la   s10, dist_po
     la   s11, dist_o
+    la   s9, stP
     mv   a0, s0
     mv   a1, s1
     mv   a2, s2
@@ -158,20 +159,12 @@ search_iter:
     li   s4, 0              
     li   s6, 99             
 
-    la   t1, stP            
-    sh   a0, 0(t1)
-    la   t1, stO            
-    sh   a1, 0(t1)
-    la   t1, stA            
-    sb   a2, 0(t1)
-    la   t1, stB            
-    sb   a3, 0(t1)
-
-    la   t1, cur_face       
-    sb   x0, 0(t1)
-    la   t1, cur_turn       
-    sb   x0, 0(t1)
-
+    sh   a0, 0(s9)              
+    sh   a1, 32(s9)              
+    sb   a2, 64(s9)             
+    sb   a3, 80(s9)              
+    sb   x0, 96(s9)             
+    sb   x0, 112(s9)             
     bnez a0, si_loop        
     bnez a1, si_loop        
     li   a0, 0              
@@ -180,82 +173,59 @@ search_iter:
 si_loop:
     li   a0, -1
     bltz s4, si_ret              
-
-    la   t1, cur_face
-    add  t1, t1, s4
-    lbu  s7, 0(t1)
+    add  a4, s9, s4
+    slli a5, s4, 1
+    add  a5, s9, a5
+    lbu  s7, 96(a4)
 
     li   t0, 3
     bne  s7, t0, face_ok
     addi s4, s4, -1
     j    si_loop
+
 face_ok:
-
-    # turn = cur_turn[d]
-    la   t1, cur_turn
-    add  t1, t1, s4
-    lbu  s8, 0(t1)
-
-    # if (turn==0 && d>0 && face==path_face[d-1]) { cur_face[d]=face+1; continue; }
+    lbu  s8, 112(a4)             
     bnez s8, not_same
     blez s4, not_same
-    la   t1, path_face                         
-    add  t1, t1, s4
-    lbu  t0, -1(t1)
+    lbu  t0, 127(a4)             
     bne  s7, t0, not_same
     addi t0, s7, 1
-    la   t1, cur_face                       
-    add  t1, t1, s4
-    sb   t0, 0(t1)
+    sb   t0, 96(a4)             
     j    si_loop
 
 not_same:
-
-    # 推進書籤：turn==2 ? (face+1, turn=0) : turn+1
     li   t0, 2
     bne  s8, t0, turn_inc
     addi t0, s7, 1
-    la   t1, cur_face
-    add  t1, t1, s4
-    sb   t0, 0(t1)               
-    la   t1, cur_turn                        
-    add  t1, t1, s4
-    sb   x0, 0(t1)
+    sb   t0, 96(a4)              
+    sb   x0, 112(a4)            
     j    adv_done
 turn_inc:
     addi t0, s8, 1
-    la   t1, cur_turn                        
-    add  t1, t1, s4
-    sb   t0, 0(t1)
+    sb   t0, 112(a4)            
+
 adv_done:
-
-    # 來源格 t5 = (turn==0) ? d : d+1
-    mv   t5, s4
+    mv   t5, a4
+    mv   t2, a5
     beqz s8, src_ok
-    addi t5, s4, 1
-src_ok:
-    slli t6, s7, 2               
+    addi t5, a4, 1
+    addi t2, a5, 2
 
-    la   t1, stP
-    slli t2, t5, 1
-    add  t2, t1, t2
+src_ok:
+    slli t6, s7, 2
+
     lhu  t3, 0(t2)               
     la   t0, row_perm
     add  t0, t0, t6
-    lw   t0, 0(t0)               
+    lw   t0, 0(t0)
     la   t4, permutation
-    add  t4, t4, t0              
+    add  t4, t4, t0
     slli t3, t3, 1
     add  t4, t4, t3
-    lhu  t3, 0(t4)               
-    slli t2, s4, 1
-    add  t2, t1, t2
-    sh   t3, 2(t2)               
+    lhu  t3, 0(t4)
+    sh   t3, 2(a5)              
 
-    la   t1, stO
-    slli t2, t5, 1
-    add  t2, t1, t2
-    lhu  t3, 0(t2)
+    lhu  t3, 32(t2)              
     la   t0, row_orient
     add  t0, t0, t6
     lw   t0, 0(t0)
@@ -264,27 +234,9 @@ src_ok:
     slli t3, t3, 1
     add  t4, t4, t3
     lhu  t3, 0(t4)
-    slli t2, s4, 1
-    add  t2, t1, t2
-    sh   t3, 2(t2)
+    sh   t3, 34(a5)              
 
-    la   t1, stA
-    add  t2, t1, t5
-    lbu  t3, 0(t2)               
-    la   t0, row_cubie
-    add  t0, t0, t6
-    lw   t0, 0(t0)
-    la   t4, cubie_move
-    add  t4, t4, t0
-    add  t4, t4, t3              
-    lbu  t3, 0(t4)
-    add  t2, t1, s4
-    sb   t3, 1(t2)               
-
-
-    la   t1, stB
-    add  t2, t1, t5
-    lbu  t3, 0(t2)
+    lbu  t3, 64(t5)              
     la   t0, row_cubie
     add  t0, t0, t6
     lw   t0, 0(t0)
@@ -292,38 +244,34 @@ src_ok:
     add  t4, t4, t0
     add  t4, t4, t3
     lbu  t3, 0(t4)
-    add  t2, t1, s4
-    sb   t3, 1(t2)
+    sb   t3, 65(a4)              
 
-    la   t1, stP
-    slli t2, s4, 1
-    add  t1, t1, t2
-    lhu  a0, 2(t1)               
-    la   t1, stO
-    add  t1, t1, t2
-    lhu  a1, 2(t1)               
-    la   t1, stA
-    add  t1, t1, s4
-    lbu  a2, 1(t1)               
-    la   t1, stB
-    add  t1, t1, s4
-    lbu  a3, 1(t1)               
+    lbu  t3, 80(t5)             
+    la   t0, row_cubie
+    add  t0, t0, t6
+    lw   t0, 0(t0)
+    la   t4, cubie_move
+    add  t4, t4, t0
+    add  t4, t4, t3
+    lbu  t3, 0(t4)
+    sb   t3, 81(a4)             
+    lhu  a0, 2(a5)              
+    lhu  a1, 34(a5)             
+    lbu  a2, 65(a4)              
+    lbu  a3, 81(a4)              
     jal  ra, heur                
 
-    add  t0, a0, s4
+    add  t0, a0, s4              
     addi t0, t0, 1
-    ble  t0, s5, no_prune
+    ble  t0, s5, no_prune        
     bge  t0, s6, si_loop         
     mv   s6, t0                  
     j    si_loop
-no_prune:
 
-    la   t0, path_face                        
-    add  t0, t0, s4
-    sb   s7, 0(t0)
-    la   t0, path_turn                        
-    add  t0, t0, s4
-    sb   s8, 0(t0)
+
+no_prune:
+    sb   s7, 128(a4)             
+    sb   s8, 144(a4)             
 
     bnez a0, go_deeper
     addi a0, s4, 1
@@ -331,12 +279,8 @@ no_prune:
 
 go_deeper:
     addi s4, s4, 1
-    la   t1, cur_face                       
-    add  t1, t1, s4
-    sb   x0, 0(t1)
-    la   t1, cur_turn                       
-    add  t1, t1, s4
-    sb   x0, 0(t1)
+    sb   x0, 97(a4)              
+    sb   x0, 113(a4)             
     j    si_loop
 
 si_ret:
@@ -363,7 +307,7 @@ solve_loop:
     bgez a0, solve_done
     mv   s5, s6
     j    solve_loop
-    
+
 solve_done:
     lw   ra, 0(sp)
     addi sp, sp, 4
