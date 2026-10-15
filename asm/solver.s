@@ -75,6 +75,18 @@ next_i:
     addi t3, t3, 1
     blt  t3, t4, loop_i
 
+    la   s10, dist_po
+    la   s11, dist_o
+    mv   a0, s0
+    mv   a1, s1
+    mv   a2, s2
+    mv   a3, s3
+    jal  ra, heur
+    li   a7, 1
+    ecall
+    li   a0, 32
+    li   a7, 11
+    ecall
 
     mv   a0, s0
     li   a7, 1
@@ -102,4 +114,24 @@ next_i:
     ecall
 
     li   a7, 10          
-    ecall    
+    ecall  
+    
+heur:
+    andi t0, a2, 3            
+    andi t1, a3, 3           
+    slli t2, a0, 3              
+    add  t2, t2, a0             
+    slli t3, t0, 1              
+    add  t3, t3, t0            
+    add  t2, t2, t3
+    add  t2, t2, t1
+    add  t2, t2, s10           
+    lbu  t2, 0(t2)           
+    add  t3, s11, a1           
+    lbu  t3, 0(t3)             
+    mv   a0, t2
+    bgeu  t2, t3, heur_done
+    mv a0, t3      
+
+heur_done:
+    ret    
