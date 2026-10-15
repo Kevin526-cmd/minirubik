@@ -1,0 +1,4 @@
+﻿11 720 0 4 0
+Program exited with code: 0
+===== instructions retired
+7694219
