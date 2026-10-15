@@ -17,6 +17,7 @@ path_turn: .zero 16
 row_perm:   .word 0, 10080, 20160   
 row_orient: .word 0, 1458, 2916      
 row_cubie:  .word 0, 28, 56  
+rows:       .zero 36
 
     .text
 main:
@@ -92,6 +93,26 @@ next_i:
     la   s10, dist_po
     la   s11, dist_o
     la   s9, stP
+    la   a6, rows           
+    la   t0, permutation
+    la   t1, orientation
+    la   t2, cubie_move
+    sw   t0, 0(a6)           
+    sw   t1, 4(a6)
+    sw   t2, 8(a6)
+    li   t3, 10080
+    add  t0, t0, t3          
+    addi t1, t1, 1458
+    addi t2, t2, 28
+    sw   t0, 12(a6)          
+    sw   t1, 16(a6)
+    sw   t2, 20(a6)
+    add  t0, t0, t3
+    addi t1, t1, 1458
+    addi t2, t2, 28
+    sw   t0, 24(a6)         
+    sw   t1, 28(a6)
+    sw   t2, 32(a6)
     mv   a0, s0
     mv   a1, s1
     mv   a2, s2
@@ -212,62 +233,43 @@ adv_done:
     addi t2, a5, 2
 
 src_ok:
-    slli t6, s7, 2
+    slli t6, s7, 2           
+    slli t0, s7, 3          
+    add  t6, t6, t0          
+    add  t6, t6, a6          
+    lw   t0, 0(t6)           
+    lw   t1, 4(t6)          
+    lw   t4, 8(t6)           
 
-    lhu  t3, 0(t2)               
-    la   t0, row_perm
-    add  t0, t0, t6
-    lw   t0, 0(t0)
-    la   t4, permutation
-    add  t4, t4, t0
+    lhu  t3, 0(t2)           
     slli t3, t3, 1
-    add  t4, t4, t3
-    lhu  t3, 0(t4)
-    sh   t3, 2(a5)              
+    add  t3, t0, t3
+    lhu  a0, 0(t3)           
+    sh   a0, 2(a5)           
 
-    lhu  t3, 32(t2)              
-    la   t0, row_orient
-    add  t0, t0, t6
-    lw   t0, 0(t0)
-    la   t4, orientation
-    add  t4, t4, t0
+    lhu  t3, 32(t2)          
     slli t3, t3, 1
-    add  t4, t4, t3
-    lhu  t3, 0(t4)
-    sh   t3, 34(a5)              
+    add  t3, t1, t3
+    lhu  a1, 0(t3)           
+    sh   a1, 34(a5)
 
-    lbu  t3, 64(t5)              
-    la   t0, row_cubie
-    add  t0, t0, t6
-    lw   t0, 0(t0)
-    la   t4, cubie_move
-    add  t4, t4, t0
-    add  t4, t4, t3
-    lbu  t3, 0(t4)
-    sb   t3, 65(a4)              
+    lbu  t3, 64(t5)          
+    add  t3, t4, t3
+    lbu  a2, 0(t3)           
+    sb   a2, 65(a4)
 
-    lbu  t3, 80(t5)             
-    la   t0, row_cubie
-    add  t0, t0, t6
-    lw   t0, 0(t0)
-    la   t4, cubie_move
-    add  t4, t4, t0
-    add  t4, t4, t3
-    lbu  t3, 0(t4)
-    sb   t3, 81(a4)             
-    lhu  a0, 2(a5)              
-    lhu  a1, 34(a5)             
-    lbu  a2, 65(a4)              
-    lbu  a3, 81(a4)              
-    jal  ra, heur                
+    lbu  t3, 80(t5)          
+    add  t3, t4, t3
+    lbu  a3, 0(t3)           
+    sb   a3, 81(a4)
 
+    jal  ra, heur
     add  t0, a0, s4              
     addi t0, t0, 1
     ble  t0, s5, no_prune        
     bge  t0, s6, si_loop         
     mv   s6, t0                  
     j    si_loop
-
 
 no_prune:
     sb   s7, 128(a4)             
