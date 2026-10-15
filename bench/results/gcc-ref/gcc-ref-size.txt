@@ -1,0 +1,15 @@
+﻿solver_rv.elf  :
+section              size     addr
+.text                2512    65652
+.rodata             80824    68164
+.eh_frame               4   153084
+.init_array             8   153088
+.fini_array             4   153096
+.data                1064   153104
+.sdata                 12   154168
+.bss                  188   154180
+.comment               40        0
+.riscv.attributes      28        0
+Total               84684
+
+
