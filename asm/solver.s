@@ -1,5 +1,5 @@
     .data
-input:  .string "54721631111111"
+input:  .string "21345671111111"
 weight: .half 720, 120, 24, 6, 2, 1, 0
 p_arr:  .zero 7                
 o_arr:  .zero 7                
@@ -18,6 +18,7 @@ row_perm:   .word 0, 10080, 20160
 row_orient: .word 0, 1458, 2916      
 row_cubie:  .word 0, 28, 56  
 rows:       .zero 36
+face_ch:    .string "RBD"
 
     .text
 main:
@@ -50,7 +51,6 @@ skip_b:
     addi t2, t2, 1
     addi t3, t3, 1              
     blt  t3, t4, loop1          
-    addi s1, s1, 0
 
     li   s1, 0                 
     la   t2, o_arr             
@@ -118,39 +118,73 @@ next_i:
     mv   a2, s2
     mv   a3, s3
     jal  ra, solve
-    li   a7, 1
+    mv   s8, a0              
+    li   a7, 1               
     ecall
+    li   a0, 58              
+    li   a7, 11
+    ecall
+
+    mv   s4, s0              
+    mv   s5, s1              
+    li   s6, 0               
+v_loop:
+    bge  s6, s8, v_check
+    add  t3, s9, s6
+    lbu  t4, 128(t3)         
+    lbu  t5, 144(t3)        
+
+    li   a0, 32              
+    li   a7, 11
+    ecall
+    la   t0, face_ch
+    add  t0, t0, t4
+    lbu  a0, 0(t0)           
+    ecall
+    li   t0, 1
+    bne  t5, t0, v_not2
+    li   a0, 50              
+    ecall
+v_not2:
+    li   t0, 2
+    bne  t5, t0, v_not3
+    li   a0, 39              
+    ecall
+v_not3:
+
+    slli t6, t4, 2           
+    slli t0, t4, 3
+    add  t6, t6, t0
+    add  t6, t6, a6
+    lw   t1, 0(t6)           
+    lw   t2, 4(t6)           
+    addi t5, t5, 1           
+v_turn:
+    slli t0, s4, 1
+    add  t0, t1, t0
+    lhu  s4, 0(t0)           
+    slli t0, s5, 1
+    add  t0, t2, t0
+    lhu  s5, 0(t0)           
+    addi t5, t5, -1
+    bnez t5, v_turn
+    addi s6, s6, 1
+    j    v_loop
+
+v_check:
     li   a0, 32
     li   a7, 11
     ecall
-
-    mv   a0, s0
-    li   a7, 1
-    ecall                       
-    li   a0, 32                 
-    li   a7, 11
-    ecall                       
-
-    mv   a0, s1         
-    li   a7, 1
-    ecall
-    li   a0, 32
-    li   a7, 11
-    ecall
-
-    mv   a0, s2         
-    li   a7, 1
-    ecall
-    li   a0, 32
-    li   a7, 11
-    ecall
-
-    mv   a0, s3          
+    or   t0, s4, s5          
+    li   a0, 1              
+    beqz t0, v_print
+    li   a0, 0               
+v_print:
     li   a7, 1
     ecall
 
-    li   a7, 10          
-    ecall  
+    li   a7, 10             
+    ecall      
     
 heur:
     andi t0, a2, 3            
