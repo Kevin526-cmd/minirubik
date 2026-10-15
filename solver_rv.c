@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "tables.h"
 
-static const char input[15] = "54721631111111";
+static const char input[15] = "21345671111111";
 
 static int heuristic(uint16_t P, uint16_t O, uint8_t ca, uint8_t cb)
 {

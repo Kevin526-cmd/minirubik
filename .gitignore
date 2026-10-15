@@ -6,3 +6,7 @@ mini
 
 bench/run*.txt
 *.exe
+
+*.elf
+asm/test_*.s*.elf
+asm/test_*.s
