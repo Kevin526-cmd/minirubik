@@ -1,0 +1,9 @@
+﻿asm\build_size.o  :
+section              size   addr
+.text                1188      0
+.data               81071      0
+.bss                    0      0
+.riscv.attributes      26      0
+Total               82285
+
+

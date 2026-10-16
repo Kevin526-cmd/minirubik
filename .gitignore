@@ -14,3 +14,4 @@ asm/build_*.s
 asm/led_test.s
 asm/solver_worst.s
 asm/tables_test.s
+*.o
