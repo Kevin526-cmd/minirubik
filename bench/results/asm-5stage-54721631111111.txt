@@ -1,0 +1,8 @@
+﻿0: 1
+Program exited with code: 0
+===== cycles
+703
+===== instructions retired
+472
+===== cycles per instruction (CPI)
+1.4894067796610169

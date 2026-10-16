@@ -1,5 +1,5 @@
     .data
-input:  .string "54721631111111"
+input:  .string "21345671111111"
 weight: .half 720, 120, 24, 6, 2, 1, 0
 p_arr:  .byte 0, 0, 0, 0, 0, 0, 0, 7
 o_arr:  .zero 8              
@@ -282,25 +282,22 @@ src_ok:
     lw   t4, 8(t6)           
 
     lhu  t3, 0(t2)           
-    slli t3, t3, 1
+    lhu  a1, 32(t2)
+    lbu  a2, 64(t5)
+    lbu  a3, 80(t5)
+    slli t3, t3, 1           
+    slli a1, a1, 1
     add  t3, t0, t3
+    add  a1, t1, a1
+    add  a2, t4, a2
+    add  a3, t4, a3
     lhu  a0, 0(t3)           
-    sh   a0, 2(a5)           
-
-    lhu  t3, 32(t2)          
-    slli t3, t3, 1
-    add  t3, t1, t3
-    lhu  a1, 0(t3)           
+    lhu  a1, 0(a1)
+    lbu  a2, 0(a2)
+    lbu  a3, 0(a3)
+    sh   a0, 2(a5)          
     sh   a1, 34(a5)
-
-    lbu  t3, 64(t5)          
-    add  t3, t4, t3
-    lbu  a2, 0(t3)           
     sb   a2, 65(a4)
-
-    lbu  t3, 80(t5)          
-    add  t3, t4, t3
-    lbu  a3, 0(t3)           
     sb   a3, 81(a4)
 
     andi t0, a2, 3           
@@ -310,17 +307,17 @@ src_ok:
     slli t3, t0, 1
     add  t3, t3, t0          
     add  t2, t2, t3
-    add  t2, t2, t1          
+    add  t2, t2, t1
     add  t2, t2, s10
-    lbu  t2, 0(t2)           
-    add  t3, s11, a1
-    lbu  a0, 0(t3)           
-    bgeu a0, t2, h_ok        
-    mv   a0, t2              
+    add  t3, s11, a1        
+    lbu  t2, 0(t2)
+    lbu  a0, 0(t3)
+    addi t6, s4, 1           
+    bgeu a0, t2, h_ok
+    mv   a0, t2
 
 h_ok:
-    add  t0, a0, s4              
-    addi t0, t0, 1
+    add  t0, a0, t6              
     ble  t0, s5, no_prune        
     bge  t0, s6, si_loop         
     mv   s6, t0                  
