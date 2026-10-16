@@ -1,4 +1,4 @@
 ﻿11: R B' D2 R' B R' B' R D2 R B 1
 Program exited with code: 0
 ===== instructions retired
-3753852
+3753920

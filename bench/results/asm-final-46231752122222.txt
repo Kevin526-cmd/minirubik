@@ -1,4 +1,4 @@
 ﻿3: B' D2 R 1
 Program exited with code: 0
 ===== instructions retired
-1381
+1401

@@ -1,5 +1,5 @@
     .data
-input:  .string "46231752122222"
+input:  .string "54721631111111"
 weight: .half 720, 120, 24, 6, 2, 1, 0
 p_arr:  .byte 0, 0, 0, 0, 0, 0, 0, 7
 o_arr:  .zero 8              
