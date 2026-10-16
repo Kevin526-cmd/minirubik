@@ -1,8 +1,8 @@
     .data
-input:  .string "21345671111111"
+input:  .string "46231752122222"
 weight: .half 720, 120, 24, 6, 2, 1, 0
-p_arr:  .zero 7                
-o_arr:  .zero 7                
+p_arr:  .byte 0, 0, 0, 0, 0, 0, 0, 7
+o_arr:  .zero 8              
     .align 1                 
 stP:       .zero 32
 stO:       .zero 32
@@ -113,6 +113,7 @@ next_i:
     sw   t0, 24(a6)         
     sw   t1, 28(a6)
     sw   t2, 32(a6)
+    jal  ra, render
     mv   a0, s0
     mv   a1, s1
     mv   a2, s2
@@ -168,6 +169,11 @@ v_turn:
     lhu  s5, 0(t0)           
     addi t5, t5, -1
     bnez t5, v_turn
+    add  t3, s9, s6         
+    lbu  a0, 128(t3)
+    lbu  a1, 144(t3)
+    addi a1, a1, 1
+    jal  ra, led_step
     addi s6, s6, 1
     j    v_loop
 
